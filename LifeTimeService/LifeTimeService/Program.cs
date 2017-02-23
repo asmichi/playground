@@ -24,19 +24,64 @@ namespace LifeTimeService
                 {
                     for (int i = 0; i < 30; i++)
                     {
-                        var ro = (RemoteObject)ad.CreateInstanceAndUnwrap(
+#if true
+                        var ro = ProxyHolder.Create((RemoteObject)ad.CreateInstanceAndUnwrap(
                             Assembly.GetExecutingAssembly().FullName,
-                            typeof(RemoteObject).FullName);
+                            typeof(RemoteObject).FullName));
+#else
+                        var ro = (LeaseManagedRemoteObject)ad.CreateInstanceAndUnwrap(
+                            Assembly.GetExecutingAssembly().FullName,
+                            typeof(LeaseManagedRemoteObject).FullName);
 
+                        sponsor.Register((ILease)ro.GetLifetimeService());
+#endif
                         // Oops, forgot to dispose it!
                         // ro.Dispose();
 
-                        sponsor.Register((ILease)ro.GetLifetimeService());
-                        Thread.Sleep(1000);
+                        Thread.Sleep(100);
                     }
                 }
             }
         }
+    }
+
+    internal static class ProxyHolder
+    {
+        public static ProxyHolder<T> Create<T>(T proxy)
+            where T : IDisposable
+        {
+            return new ProxyHolder<T>(proxy);
+        }
+    }
+
+    // Disposes the holding proxy object in its finalizer.
+    internal class ProxyHolder<T> : IDisposable
+        where T : IDisposable
+    {
+        public T Proxy { get; }
+
+        public ProxyHolder(T proxy)
+        {
+            this.Proxy = proxy;
+        }
+
+        #region IDisposable Support
+        protected virtual void Dispose(bool disposing)
+        {
+            Proxy.Dispose();
+        }
+
+        ~ProxyHolder()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 
     internal class RemoteObject : MarshalByRefObject, IDisposable
@@ -65,9 +110,45 @@ namespace LifeTimeService
             }
         }
 
-        ~RemoteObject()
+        public void Dispose()
         {
-            Dispose(false);
+            Dispose(true);
+        }
+        #endregion
+
+        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.Infrastructure)]
+        public override object InitializeLifetimeService()
+        {
+            // Infinite lifetime.
+            // This instance will never be GC'ed unless RemotingServices.Disconnect(this) explicitly called.
+            return null;
+        }
+    }
+
+    internal class LeaseManagedRemoteObject : MarshalByRefObject, IDisposable
+    {
+        private static int InstanceCount;
+        // Add some memory pressure.
+        private readonly List<int>[] _bigArray = Enumerable.Range(0, 1024).Select(_ => new List<int>(1024)).ToArray();
+        private bool _disposed = false;
+
+        public LeaseManagedRemoteObject()
+        {
+            Interlocked.Increment(ref InstanceCount);
+            Debug.WriteLine($"RemoteObject.ctor: {InstanceCount} instances remain.");
+        }
+
+        #region IDisposable Support
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                RemotingServices.Disconnect(this);
+                _disposed = true;
+
+                Interlocked.Decrement(ref InstanceCount);
+                Debug.WriteLine($"RemoteObject.Dispose: {InstanceCount} instances remain.");
+            }
         }
 
         public void Dispose()
@@ -77,9 +158,17 @@ namespace LifeTimeService
         }
         #endregion
 
+        // Just for logging the instance count.
+        ~LeaseManagedRemoteObject()
+        {
+            Interlocked.Decrement(ref InstanceCount);
+            Debug.WriteLine($"RemoteObject.Dispose: {InstanceCount} instances remain.");
+        }
+
         [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.Infrastructure)]
         public override object InitializeLifetimeService()
         {
+            // This MBRO instance will not be GC'ed until this lease expires because this lease holds a reference to this MBRO instance.
             var lease = (ILease)base.InitializeLifetimeService();
 
             if (lease.CurrentState == LeaseState.Initial)
