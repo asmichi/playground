@@ -87,8 +87,8 @@ type MutableLinkedList<'a> =
 
     member public this.Tail =
         match this.head with
-        | Some x -> Some(MutableLinkedList(x.Next))
-        | None -> None
+        | Some x -> MutableLinkedList(x.Next)
+        | None -> failwith "List is empty."
 
     member public this.AddFirst v =
         this.head <- Some(MutableLinkedListNode(v, this.head))
@@ -137,7 +137,7 @@ type MutableLinkedList<'a> =
         this
 
 module MutableLinkedList =
-    let toSeq (xs : MutableLinkedList<'a>) = xs.ToSeq
+    let toSeq (list : MutableLinkedList<'a>) = list.ToSeq
     let fromSeq<'a> : ('a seq -> MutableLinkedList<'a>) =
         MutableLinkedList<'a>()
         |> Seq.fold (fun list x -> list.AddLast(x))

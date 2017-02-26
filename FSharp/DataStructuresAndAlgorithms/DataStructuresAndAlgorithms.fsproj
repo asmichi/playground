@@ -62,6 +62,7 @@
     <None Include="Scripts\load-references-debug.fsx" />
     <None Include="Scripts\load-project-debug.fsx" />
     <Compile Include="Chapter3\MutableLinkedList.fs" />
+    <Compile Include="Chapter3\LinkedList.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
