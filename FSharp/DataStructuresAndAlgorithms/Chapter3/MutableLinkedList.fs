@@ -34,11 +34,11 @@ type MutableLinkedListNode<'a>(value : 'a, next : MutableLinkedListNode<'a> opti
         this.Next <- Some(newNext)
         this
 
-    member public this.RemoveLast =
+    member public this.RemoveLast() =
         match this.Next with
         | Some n ->
             match n.Next with
-            | Some nn -> nn.RemoveLast
+            | Some nn -> nn.RemoveLast()
             | None -> this.Next <- None
         | None -> failwith "No successor."
 
@@ -101,14 +101,14 @@ type MutableLinkedList<'a> =
             | None -> this.head <- next
         this
 
-    member public this.RemoveFirst =
+    member public this.RemoveFirst() =
         this.head <- 
             match this.head with
             | Some n -> n.Next
             | None -> failwith "List is empty."
         this
 
-    member public this.RemoveLast =
+    member public this.RemoveLast() =
         match this.head with
         | Some n ->
             match n.Next with
@@ -169,26 +169,26 @@ let ``Can add element at the end``() =
 let ``Can remove element at the front``() = 
     let sut = MutableLinkedList.fromSeq [ 1; 2 ]
 
-    sut.RemoveFirst |> ignore
+    sut.RemoveFirst() |> ignore
     (Seq.toList sut) =! [ 2 ]
 
-    sut.RemoveFirst |> ignore
+    sut.RemoveFirst() |> ignore
     (Seq.toList sut) =! [ ]
 
 [<Fact>]
 let ``Can remove element at the end``() = 
     let sut = MutableLinkedList.fromSeq [ 1; 2 ]
 
-    sut.RemoveLast |> ignore
+    sut.RemoveLast() |> ignore
     (Seq.toList sut) =! [ 1 ]
 
-    sut.RemoveLast |> ignore
+    sut.RemoveLast() |> ignore
     (Seq.toList sut) =! [ ]
 
 [<Fact>]
 let ``Can remove element in the middle``() = 
     let sut = MutableLinkedList.fromSeq [ 1; 2; 3 ]
 
-    sut.RemoveNode (sut.NthNode 1) |> ignore
+    sut.RemoveNode(sut.NthNode 1) |> ignore
     (Seq.toList sut) =! [ 1; 3 ]
 

@@ -73,12 +73,12 @@ type LinkedList<'a>(head : LinkedListNode<'a> option) =
         | Some h -> LinkedList(h.AddLast v)
         | None -> LinkedList(LinkedListNode.create(v, None))
 
-    member public this.RemoveFirst = 
+    member public this.RemoveFirst() = 
         match head with
         | Some h -> LinkedList(h.Next)
         | None -> failwith "list is empty"
 
-    member public this.RemoveLast = 
+    member public this.RemoveLast() = 
         match head with
         | Some h -> LinkedList(h.RemoveLast)
         | None -> failwith "list is empty"
@@ -134,20 +134,20 @@ let ``Can add element at the end``() =
 let ``Can remove element at the front``() = 
     let sut = LinkedList.fromList [ 1; 2 ]
 
-    let sut = sut.RemoveFirst
+    let sut = sut.RemoveFirst()
     (LinkedList.toList sut) =! [ 2 ]
 
-    let sut = sut.RemoveFirst
+    let sut = sut.RemoveFirst()
     (LinkedList.toList sut) =! [ ]
 
 [<Fact>]
 let ``Can remove element at the end``() = 
     let sut = LinkedList.fromList [ 1; 2 ]
 
-    let sut = sut.RemoveLast
+    let sut = sut.RemoveLast()
     (LinkedList.toList sut) =! [ 1 ]
 
-    let sut = sut.RemoveLast
+    let sut = sut.RemoveLast()
     (LinkedList.toList sut) =! [ ]
 
 [<Fact>]
