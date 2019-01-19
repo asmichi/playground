@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace AddBom
+namespace RemoveBom
 {
     internal static class Program
     {
@@ -14,9 +12,9 @@ namespace AddBom
         private static readonly byte[] Utf8Preamble = Utf8Bom.GetPreamble();
 
         /// <summary>
-        /// Convert specified UTF-8 files to UTF-8 BOM. 
+        /// Convert specified UTF-8 files to UTF-8 NoBOM. 
         /// </summary>
-        /// <param name="args"></param>
+        /// <param name="args">Files</param>
         public static int Main(string[] args)
         {
             bool hasError = false;
@@ -35,13 +33,15 @@ namespace AddBom
                     continue;
                 }
 
-                if (HasPreamble(bytes))
+                if (!HasPreamble(bytes))
                 {
-                    Console.WriteLine("note: {0} : File already has the UTF-8 preamble; skipping.", path);
+                    Console.WriteLine("info: {0} : File already has the UTF-8 preamble removed; skipping.", path);
                     continue;
                 }
 
-                if (!AreValidUtf8Bytes(bytes))
+                var noPreambleSpan = bytes.AsSpan(Utf8Preamble.Length, bytes.Length - Utf8Preamble.Length);
+
+                if (!AreValidUtf8Bytes(noPreambleSpan))
                 {
                     Console.WriteLine("error: {0} : File is not UTF-8 encoded.", path);
                     hasError = true;
@@ -52,8 +52,7 @@ namespace AddBom
                 {
                     using (var w = File.OpenWrite(path))
                     {
-                        w.Write(Utf8Preamble, 0, Utf8Preamble.Length);
-                        w.Write(bytes, 0, bytes.Length);
+                        w.Write(noPreambleSpan);
                     }
                 }
                 catch (Exception e) when (IsIORelatedException(e))
@@ -79,7 +78,7 @@ namespace AddBom
                 && bytes.Take(Utf8Preamble.Length).SequenceEqual(Utf8Preamble);
         }
 
-        private static bool AreValidUtf8Bytes(byte[] bytes)
+        private static bool AreValidUtf8Bytes(ReadOnlySpan<byte> bytes)
         {
             try
             {
