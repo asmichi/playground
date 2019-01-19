@@ -1,4 +1,4 @@
-﻿using Microsoft.FSharp.Core;
+using Microsoft.FSharp.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;

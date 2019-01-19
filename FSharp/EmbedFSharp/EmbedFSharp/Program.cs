@@ -1,4 +1,4 @@
-﻿using EmbedFSharp.ScriptInterfaces;
+using EmbedFSharp.ScriptInterfaces;
 using Microsoft.FSharp.Compiler;
 using Microsoft.FSharp.Compiler.Interactive;
 using Microsoft.FSharp.Compiler.SourceCodeServices;

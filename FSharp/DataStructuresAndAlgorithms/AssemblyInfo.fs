@@ -1,4 +1,4 @@
-﻿namespace DataStructuresAndAlgorithms.AssemblyInfo
+namespace DataStructuresAndAlgorithms.AssemblyInfo
 
 open System.Reflection
 open System.Runtime.CompilerServices

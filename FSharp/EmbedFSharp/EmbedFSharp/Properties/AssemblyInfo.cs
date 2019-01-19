@@ -1,4 +1,4 @@
-﻿using Microsoft.FSharp.Core;
+using Microsoft.FSharp.Core;
 using System.Reflection;
 using System.Runtime.InteropServices;
 

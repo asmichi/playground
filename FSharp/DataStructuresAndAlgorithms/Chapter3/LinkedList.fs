@@ -1,4 +1,4 @@
-﻿module DataStructuresAndAlgorithms.Chapter3.LinkedList
+module DataStructuresAndAlgorithms.Chapter3.LinkedList
 open Xunit
 open Swensen.Unquote
 

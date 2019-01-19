@@ -52,6 +52,7 @@ namespace RemoveBom
                 {
                     using (var w = File.OpenWrite(path))
                     {
+                        w.SetLength(noPreambleSpan.Length);
                         w.Write(noPreambleSpan);
                     }
                 }

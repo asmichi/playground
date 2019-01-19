@@ -1,4 +1,4 @@
-﻿module DataStructuresAndAlgorithms.Chapter3.MutableLinkedList
+module DataStructuresAndAlgorithms.Chapter3.MutableLinkedList
 open Xunit
 open Swensen.Unquote
 open System.Collections
