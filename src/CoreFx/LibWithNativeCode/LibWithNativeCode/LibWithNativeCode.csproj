@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <NoWarn>NU5105;$(NoWarn)</NoWarn>
+  </PropertyGroup>
+
+  <!-- See https://github.com/NuGet/Home/issues/6645 -->
+  <ItemGroup>
+    <Content Include="$(BinDir)NativeLib\linux-x64\$(Configuration)\libNativeLib.so">
+      <Visible>false</Visible>
+      <PackagePath>runtimes/linux-x64/native</PackagePath>
+    </Content>
+    <Content Include="$(BinDir)NativeLib\win-x86\$(Configuration)\libNativeLib.dll">
+      <Visible>false</Visible>
+      <PackagePath>runtimes/win-x86/native</PackagePath>
+    </Content>
+    <Content Include="$(BinDir)NativeLib\win-x64\$(Configuration)\libNativeLib.dll">
+      <Visible>false</Visible>
+      <PackagePath>runtimes/win-x64/native</PackagePath>
+    </Content>
+  </ItemGroup>
+
+</Project>
