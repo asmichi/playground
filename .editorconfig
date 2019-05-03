@@ -25,8 +25,7 @@ trim_trailing_whitespace = true
 insert_final_newline = true
 
 # Linux Shell Scripts
-[*.{sh}]
-indent_size = 4
+[*.sh]
 end_of_line = lf
 trim_trailing_whitespace = true
 insert_final_newline = true
