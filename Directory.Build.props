@@ -3,5 +3,5 @@
     <WorkTreeRoot>$(MSBuildThisFileDirectory)</WorkTreeRoot>
   </PropertyGroup>
 
-  <Import Project="build/CommonProps.csproj.props" Condition="'$(MSBuildProjectExtension)'=='.csproj'"/>
+  <Import Project="build/msbuild/CommonProps.csproj.props" Condition="'$(MSBuildProjectExtension)'=='.csproj'"/>
 </Project>
