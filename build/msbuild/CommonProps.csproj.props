@@ -1,5 +1,9 @@
 ﻿<Project>
 
+  <PropertyGroup>
+    <Platform Condition="'$(Platform)'==''">AnyCPU</Platform>
+  </PropertyGroup>
+
   <!-- Directories -->
   <PropertyGroup>
     <!-- One central intermediate directory. MSBuildProjectName to keep intermediate directories from being shared across multiple projects. -->
