@@ -9,9 +9,7 @@
     <IntDir Condition="'$(TargetFramework)' != ''">$(IntDir)$(TargetFramework)\</IntDir>
     <!-- One central bin directory. -->
     <BinDir>$(WorkTreeRoot)bin\</BinDir>
-    <OutDir>$(BinDir)\$(MSBuildProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <OutDir Condition="'$(TargetFramework)' != ''">$(OutDir)$(TargetFramework)\</OutDir>
-    <OutputPath>$(OutDir)</OutputPath>
+    <OutputPath>$(BinDir)\$(MSBuildProjectName)\$(Platform)\$(Configuration)\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup>
