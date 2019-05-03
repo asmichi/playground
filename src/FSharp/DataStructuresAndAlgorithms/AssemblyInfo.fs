@@ -12,7 +12,7 @@ open System.Runtime.InteropServices
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("")>]
 [<assembly: AssemblyProduct("DataStructuresAndAlgorithms")>]
-[<assembly: AssemblyCopyright("Copyright ©  2017")>]
+[<assembly: AssemblyCopyright("Copyright (c) @asmichi (https://github.com/asmichi)")>]
 [<assembly: AssemblyTrademark("")>]
 [<assembly: AssemblyCulture("")>]
 
@@ -25,12 +25,12 @@ open System.Runtime.InteropServices
 [<assembly: Guid("de7135ad-332b-4c8c-b509-834b7b565b72")>]
 
 // アセンブリのバージョン情報は、以下の 4 つの値で構成されます。:
-// 
+//
 //       メジャー バージョン
-//       マイナー バージョン 
+//       マイナー バージョン
 //       ビルド番号
 //       リビジョン
-// 
+//
 // すべての値を指定するか、下に示すように '*' を使用してビルドおよびリビジョン番号を
 // 既定値にすることができます。:
 // [<assembly: AssemblyVersion("1.0.*")>]

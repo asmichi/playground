@@ -25,7 +25,7 @@
     <Authors>asmichi</Authors>
     <Company>asmichi</Company>
     <Product>Asmichi.Playground</Product>
-    <Copyright>Copyright (c) 2015 @asmichi (on github)</Copyright>
+    <Copyright>Copyright (c) @asmichi (https://github.com/asmichi)</Copyright>
     <AssemblyVersion>0.0.0.0</AssemblyVersion>
     <FileVersion>0.0.0.0</FileVersion>
     <InformationalVersion>0.0.0.0+unknown</InformationalVersion>

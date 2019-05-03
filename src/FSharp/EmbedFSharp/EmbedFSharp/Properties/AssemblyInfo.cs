@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("EmbedFSharp")]
-[assembly: AssemblyCopyright("Copyright © @asmichi 2017")]
+[assembly: AssemblyCopyright("Copyright (c) @asmichi (https://github.com/asmichi)")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
