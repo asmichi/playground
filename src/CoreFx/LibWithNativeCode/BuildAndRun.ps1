@@ -17,7 +17,7 @@ $ErrorActionPreference = "Stop"
 $thisDir = $PSScriptRoot
 $workTreeRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 
-& "${thisDir}\NativeLib\BuildNativeLib.ps1"
+& "${thisDir}\NativeLib\BuildNativeLib.ps1" -ImageNamePrefix $ImageNamePrefix
 
 dotnet build -nologo -v:quiet -c Release "${thisDir}\LibWithNativeCode\LibWithNativeCode.csproj"
 

@@ -17,13 +17,14 @@ $ErrorActionPreference = "Stop"
 $thisDir = $PSScriptRoot
 $workTreeRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")
 
+$winBaseImageName = "mcr.microsoft.com/dotnet/framework/runtime:4.7.2-windowsservercore-ltsc2019"
 $linuxImageName = "${ImageNamePrefix}/ubuntu-x64/gcc:18.04"
 $msvcImageName = "${ImageNamePrefix}/win/buildtools2017native:latest"
 $linuxContainerName = "${ImageNamePrefix}-BuildNativeLib-linux"
 $msvcContainerName = "${ImageNamePrefix}-BuildNativeLib-win"
 
 docker build -t $linuxImageName -f "${thisDir}\ubuntu-x64-gcc-18.04.Dockerfile" ${thisDir}
-docker build -t $msvcImageName -f "${thisDir}\win-buildtools2017.Dockerfile" ${thisDir}
+docker build -t $msvcImageName -f "${thisDir}\win-buildtools2017.Dockerfile" --build-arg FROM_IMAGE=$winBaseImageName ${thisDir}
 
 # Build Linux binaries.
 docker run --mount "type=bind,readonly,source=${workTreeRoot}/src/CoreFx/LibWithNativeCode/NativeLib,target=/home/proj/root" --name $linuxContainerName $linuxImageName `

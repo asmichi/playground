@@ -10,7 +10,8 @@
 # The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-FROM mcr.microsoft.com/dotnet/framework/runtime:3.5-windowsservercore-1803
+ARG FROM_IMAGE=mcr.microsoft.com/dotnet/framework/runtime:4.7.2-windowsservercore-ltsc2019
+FROM ${FROM_IMAGE}
 
 # Reset the shell.
 SHELL ["cmd", "/S", "/C"]
@@ -33,4 +34,3 @@ RUN C:\TEMP\Install.cmd C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --n
 
 # Use developer command prompt and start PowerShell if no other command specified.
 ENTRYPOINT C:\BuildTools\Common7\Tools\VsDevCmd.bat &&
-CMD ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
