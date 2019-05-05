@@ -7,6 +7,9 @@
 # Build native runtimes of LibWithNativeCode.
 param(
     [parameter()]
+    [switch]
+    $AlwaysBuildImage,
+    [parameter()]
     [string]
     $ImageNamePrefix = "asmichi"
 )
@@ -17,7 +20,7 @@ $ErrorActionPreference = "Stop"
 $thisDir = $PSScriptRoot
 $workTreeRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 
-& "${thisDir}\NativeLib\BuildNativeLib.ps1" -ImageNamePrefix $ImageNamePrefix
+& "${thisDir}\NativeLib\BuildNativeLib.ps1" -AlwaysBuildImage:$AlwaysBuildImage -ImageNamePrefix $ImageNamePrefix
 
 dotnet build -nologo -v:quiet -c Release "${thisDir}\LibWithNativeCode\LibWithNativeCode.csproj"
 
