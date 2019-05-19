@@ -4,5 +4,6 @@
 *launchSettings.json
 .vs/
 .vscode/
+__pycache__/
 bin/
 obj/
