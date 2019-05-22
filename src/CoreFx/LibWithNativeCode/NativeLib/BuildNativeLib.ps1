@@ -21,8 +21,13 @@ function Test-Image {
         $ImageName
     )
 
-    docker image inspect $ImageName 2>&1 | Out-Null
-    return $LASTEXITCODE -eq 0
+    try {
+        docker image inspect $ImageName 2>&1 | Out-Null
+        return $LASTEXITCODE -eq 0
+    }
+    catch {
+        return $False
+    }
 }
 
 Set-StrictMode -Version latest
