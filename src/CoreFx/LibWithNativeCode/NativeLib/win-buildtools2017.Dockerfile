@@ -4,6 +4,8 @@
 # WARNING: You need a Visual Studio 2017 license to use the generated docker image.
 #
 
+# Obrained from https://github.com/microsoft/vs-dockerfiles/tree/master/native-desktop.
+#
 # The MIT License (MIT) 
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -20,6 +22,10 @@ SHELL ["cmd", "/S", "/C"]
 COPY Install.cmd C:\TEMP\
 ADD https://aka.ms/vscollect.exe C:\TEMP\collect.exe
 
+# Install Node.js LTS
+ADD https://nodejs.org/dist/v8.11.3/node-v8.11.3-x64.msi C:\TEMP\node-install.msi
+RUN start /wait msiexec.exe /i C:\TEMP\node-install.msi /l*vx "%TEMP%\MSI-node-install.log" /qn ADDLOCAL=ALL
+
 # Download channel for fixed install.
 ARG CHANNEL_URL=https://aka.ms/vs/15/release/channel
 ADD ${CHANNEL_URL} C:\TEMP\VisualStudio.chman
@@ -34,3 +40,4 @@ RUN C:\TEMP\Install.cmd C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --n
 
 # Use developer command prompt and start PowerShell if no other command specified.
 ENTRYPOINT C:\BuildTools\Common7\Tools\VsDevCmd.bat &&
+CMD ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
