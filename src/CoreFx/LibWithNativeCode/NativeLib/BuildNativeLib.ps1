@@ -9,9 +9,12 @@ param(
     [parameter()]
     [switch]
     $AlwaysBuildImage,
-    [parameter()]
+    [parameter(mandatory = $true)]
     [string]
-    $ImageNamePrefix = "asmichi"
+    $ImageNamePrefix,
+    [parameter(mandatory = $true)]
+    [string]
+    $WinBaseImageTag
 )
 
 function Test-Image {
@@ -20,7 +23,6 @@ function Test-Image {
         [string]
         $ImageName
     )
-
     try {
         docker image inspect $ImageName 2>&1 | Out-Null
         return $LASTEXITCODE -eq 0
@@ -36,9 +38,9 @@ $ErrorActionPreference = "Stop"
 $thisDir = $PSScriptRoot
 $workTreeRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")
 
-$winBaseImageName = "mcr.microsoft.com/dotnet/framework/runtime:4.7.2-windowsservercore-ltsc2019"
+$winBaseImageName = "mcr.microsoft.com/dotnet/framework/runtime:${WinBaseImageTag}"
 $linuxImageName = "${ImageNamePrefix}/ubuntu-x64/gcc:18.04"
-$msvcImageName = "${ImageNamePrefix}/win/buildtools2017native:latest"
+$msvcImageName = "${ImageNamePrefix}/win/buildtools2017native:latest-${WinBaseImageTag}"
 $linuxContainerName = "${ImageNamePrefix}-BuildNativeLib-linux"
 $msvcContainerName = "${ImageNamePrefix}-BuildNativeLib-win"
 
@@ -46,7 +48,8 @@ if ($AlwaysBuildImage -or -not (Test-Image $linuxImageName)) {
     docker build -t $linuxImageName -f "${thisDir}\ubuntu-x64-gcc-18.04.Dockerfile" ${thisDir}
 }
 if ($AlwaysBuildImage -or -not (Test-Image $msvcImageName)) {
-    docker build -t $msvcImageName -f "${thisDir}\win-buildtools2017.Dockerfile" --build-arg FROM_IMAGE=$winBaseImageName ${thisDir}
+    # BuildTools did not properly install on 1903 in the process isolation mode (immediately exits after self-extracting).
+    docker build -t $msvcImageName --isolation hyperv -f "${thisDir}\win-buildtools2017.Dockerfile" --build-arg FROM_IMAGE=$winBaseImageName ${thisDir}
 }
 
 # Build Linux binaries.

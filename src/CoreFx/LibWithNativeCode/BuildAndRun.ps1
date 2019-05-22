@@ -5,13 +5,21 @@
 #
 
 # Build native runtimes of LibWithNativeCode.
+#
+# Possible base image tags for mcr.microsoft.com/dotnet/framework/runtime:
+# - 4.7.2-windowsservercore-ltsc2019
+# - 4.8-windowsservercore-1903
+
 param(
     [parameter()]
     [switch]
     $AlwaysBuildImage,
     [parameter()]
     [string]
-    $ImageNamePrefix = "asmichi"
+    $ImageNamePrefix = "asmichi",
+    [parameter()]
+    [string]
+    $WinBaseImageTag = "4.7.2-windowsservercore-ltsc2019"
 )
 
 Set-StrictMode -Version latest
@@ -20,7 +28,7 @@ $ErrorActionPreference = "Stop"
 $thisDir = $PSScriptRoot
 $workTreeRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 
-& "${thisDir}\NativeLib\BuildNativeLib.ps1" -AlwaysBuildImage:$AlwaysBuildImage -ImageNamePrefix $ImageNamePrefix
+& "${thisDir}\NativeLib\BuildNativeLib.ps1" -AlwaysBuildImage:$AlwaysBuildImage -ImageNamePrefix $ImageNamePrefix -WinBaseImageTag $WinBaseImageTag
 
 dotnet build -nologo -v:quiet -c Release "${thisDir}\LibWithNativeCode\LibWithNativeCode.csproj"
 
