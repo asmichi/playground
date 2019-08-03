@@ -1,5 +1,5 @@
 #pragma once
 
-#define CHILD_COUNT 3
-static const int MyPipeFd = 3;
-extern const char* MyProgramName;
+const constexpr int ChildCount = 3;
+const constexpr int MyPipeFd = 3;
+extern const char* const MyProgramName;

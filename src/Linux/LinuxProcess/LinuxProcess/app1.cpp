@@ -18,7 +18,7 @@ int app1(int argc, const char** argv)
         std::printf("[%d]:%s\n", i, argv[i]);
     }
 
-    sleep(CHILD_COUNT - index);
+    sleep(ChildCount - index);
 
     if (index == 1)
     {

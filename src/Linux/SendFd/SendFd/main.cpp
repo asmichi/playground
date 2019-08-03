@@ -16,7 +16,7 @@ struct cmsg_int
     alignas(struct cmsghdr) char control[CMSG_SPACE(sizeof(int))];
 };
 
-#define MESSAGE_PIPEFD ((int)0x12345678)
+const constexpr int MessagePipeFd = 0x12345678;
 
 int main(int argc, const char** argv)
 {
@@ -62,7 +62,7 @@ int main(int argc, const char** argv)
             std::puts("child: premature end of communication");
             return 1;
         }
-        if (mymsg != MESSAGE_PIPEFD)
+        if (mymsg != MessagePipeFd)
         {
             std::printf("child: unknown message : %d\n", mymsg);
             return 1;
@@ -111,7 +111,7 @@ int main(int argc, const char** argv)
         int parentPipe = pipes[0];
         int childPipe = pipes[1];
 
-        int mymsg = MESSAGE_PIPEFD;
+        int mymsg = MessagePipeFd;
         struct iovec iov;
         struct msghdr msg;
         struct cmsg_int cmsg;

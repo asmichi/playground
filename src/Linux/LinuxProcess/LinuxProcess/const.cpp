@@ -1,3 +1,3 @@
 #include "const.hpp"
 
-const char* MyProgramName = "./LinuxProcess.out";
+const char* const MyProgramName = "./LinuxProcess.out";

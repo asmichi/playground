@@ -15,7 +15,7 @@ struct ChildState
     int readPipe;
 };
 
-static struct ChildState g_States[CHILD_COUNT];
+static struct ChildState g_States[ChildCount];
 
 bool SpawnChild(struct ChildState* state, int index)
 {
@@ -74,7 +74,7 @@ bool SpawnChild(struct ChildState* state, int index)
 int appmain(int argc, const char** argv)
 {
     // fork children, then epoll pipes
-    for (int i = 0; i < CHILD_COUNT; i++)
+    for (int i = 0; i < ChildCount; i++)
     {
         if (!SpawnChild(&g_States[i], i))
         {
@@ -90,7 +90,7 @@ int appmain(int argc, const char** argv)
         return 1;
     }
 
-    for (int i = 0; i < CHILD_COUNT; i++)
+    for (int i = 0; i < ChildCount; i++)
     {
         struct ChildState* pState = &g_States[i];
         struct epoll_event event;
@@ -100,7 +100,7 @@ int appmain(int argc, const char** argv)
         std::printf("registered State %p (readPipe) %d\n", pState, pState->readPipe);
     }
 
-    int remainingProcs = CHILD_COUNT;
+    int remainingProcs = ChildCount;
     while (remainingProcs > 0)
     {
         struct epoll_event event;
