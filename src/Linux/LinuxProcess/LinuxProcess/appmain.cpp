@@ -1,15 +1,13 @@
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <sys/epoll.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <fcntl.h>
-#include <stdlib.h>
+#include <sys/epoll.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <errno.h>
-#include <stdbool.h>
-#include "const.h"
+#include "const.hpp"
 
 struct ChildState
 {
@@ -29,8 +27,9 @@ bool SpawnChild(struct ChildState* state, int index)
     }
 
     char arg1[3];
-    sprintf(arg1, "%d", index);
-    char* args[] = { "app1", arg1, NULL };
+    std::sprintf(arg1, "%d", index);
+    char appName[] = "app1";
+    char* args[] = { appName, arg1, NULL };
     int childPid = fork();
     if (childPid == -1)
     {
@@ -66,7 +65,7 @@ bool SpawnChild(struct ChildState* state, int index)
         close(pipefd[1]);
         state->readPipe = pipefd[0];
         state->pid = childPid;
-        printf("spawned pid %d\n", state->pid);
+        std::printf("spawned pid %d\n", state->pid);
 
         return true;
     }
@@ -79,7 +78,7 @@ int appmain(int argc, const char** argv)
     {
         if (!SpawnChild(&g_States[i], i))
         {
-            printf("failed\n");
+            std::printf("failed\n");
             return 1;
         }
     }
@@ -98,7 +97,7 @@ int appmain(int argc, const char** argv)
         event.events = EPOLLIN;
         event.data.ptr = pState;
         epoll_ctl(epfd, EPOLL_CTL_ADD, pState->readPipe, &event);
-        printf("registered State %p (readPipe) %d\n", pState, pState->readPipe);
+        std::printf("registered State %p (readPipe) %d\n", pState, pState->readPipe);
     }
 
     int remainingProcs = CHILD_COUNT;
@@ -114,27 +113,27 @@ int appmain(int argc, const char** argv)
             return 1;
         }
 
-        printf("event %x, data %p\n", event.events, event.data.ptr);
+        std::printf("event %x, data %p\n", event.events, event.data.ptr);
 
         if (event.events == EPOLLIN || event.events == EPOLLHUP)
         {
-            struct ChildState* pState = event.data.ptr;
+            struct ChildState* pState = static_cast<ChildState*>(event.data.ptr);
 
             int value;
-            int readSize = read(pState->readPipe, &value, sizeof(int));
+            ssize_t readSize = read(pState->readPipe, &value, sizeof(int));
             if (readSize == -1)
             {
                 perror("read");
             }
             else if (readSize != 4)
             {
-                printf("%p: premature end of data.\n", pState);
+                std::printf("%p: premature end of data.\n", pState);
             }
             else
             {
                 int wstatus = 0;
                 waitpid(pState->pid, &wstatus, 0);
-                printf("%d finished with %d\n", value, wstatus);
+                std::printf("%d finished with %d\n", value, wstatus);
             }
             remainingProcs--;
             epoll_ctl(epfd, EPOLL_CTL_DEL, pState->readPipe, &event);

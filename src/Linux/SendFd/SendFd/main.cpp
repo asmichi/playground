@@ -1,20 +1,19 @@
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
+
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
-#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <memory.h>
 
 // TODO: SIGPIPE handling
 
 struct cmsg_int
 {
-    _Alignas(struct cmsghdr) char control[CMSG_SPACE(sizeof(int))];
+    alignas(struct cmsghdr) char control[CMSG_SPACE(sizeof(int))];
 };
 
 #define MESSAGE_PIPEFD ((int)0x12345678)
@@ -60,31 +59,31 @@ int main(int argc, const char** argv)
         }
         if (r == 0)
         {
-            puts("child: premature end of communication");
+            std::puts("child: premature end of communication");
             return 1;
         }
         if (mymsg != MESSAGE_PIPEFD)
         {
-            printf("child: unknown message : %d\n", mymsg);
+            std::printf("child: unknown message : %d\n", mymsg);
             return 1;
         }
 
         struct cmsghdr* pcmsghdr = CMSG_FIRSTHDR(&msg);
         if (pcmsghdr == NULL)
         {
-            puts("child: cmsg expected");
+            std::puts("child: cmsg expected");
             return 1;
         }
         if (pcmsghdr->cmsg_len != CMSG_LEN(sizeof(int))
             || pcmsghdr->cmsg_level != SOL_SOCKET
             || pcmsghdr->cmsg_type != SCM_RIGHTS)
         {
-            puts("child: unexpected cmsg");
+            std::puts("child: unexpected cmsg");
             return 1;
         }
 
         int childPipe = 0;
-        memcpy(&childPipe, CMSG_DATA(pcmsghdr), sizeof(childPipe));
+        std::memcpy(&childPipe, CMSG_DATA(pcmsghdr), sizeof(childPipe));
 
         int pipeData = 115648;
         ssize_t s = write(childPipe, &pipeData, sizeof(pipeData));
@@ -131,7 +130,7 @@ int main(int argc, const char** argv)
         pcmsghdr->cmsg_len = CMSG_LEN(sizeof(int));
         pcmsghdr->cmsg_level = SOL_SOCKET;
         pcmsghdr->cmsg_type = SCM_RIGHTS;
-        memcpy(CMSG_DATA(pcmsghdr), &childPipe, sizeof(childPipe));
+        std::memcpy(CMSG_DATA(pcmsghdr), &childPipe, sizeof(childPipe));
 
         ssize_t s = sendmsg(sock, &msg, 0);
         if (s == -1)
@@ -151,11 +150,11 @@ int main(int argc, const char** argv)
         }
         if (r == 0)
         {
-            puts("parent: premature end of communication");
+            std::puts("parent: premature end of communication");
             return 1;
         }
 
-        printf("parent: received: %d\n", pipeData);
+        std::printf("parent: received: %d\n", pipeData);
         return 0;
     }
 }

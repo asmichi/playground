@@ -1,22 +1,21 @@
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <fcntl.h>
-#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <errno.h>
-#include "const.h"
+#include "const.hpp"
 
 int app1(int argc, const char** argv)
 {
-    int index = atoi(argv[1]);
+    int index = std::atoi(argv[1]);
     fcntl(MyPipeFd, F_SETFD, O_CLOEXEC);
 
     for (int i = 0; i < argc; i++)
     {
-        printf("[%d]:%s\n", i, argv[i]);
+        std::printf("[%d]:%s\n", i, argv[i]);
     }
 
     sleep(CHILD_COUNT - index);
