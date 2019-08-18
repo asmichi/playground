@@ -1,3 +1,4 @@
+#include "const.hpp"
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -7,7 +8,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "const.hpp"
 
 struct ChildState
 {
@@ -29,7 +29,7 @@ bool SpawnChild(struct ChildState* state, int index)
     char arg1[3];
     std::sprintf(arg1, "%d", index);
     char appName[] = "app1";
-    char* args[] = { appName, arg1, NULL };
+    char* args[] = {appName, arg1, NULL};
     int childPid = fork();
     if (childPid == -1)
     {

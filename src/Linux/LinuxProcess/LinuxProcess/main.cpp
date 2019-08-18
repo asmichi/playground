@@ -10,15 +10,14 @@ namespace
     struct SubCommandDefinition
     {
         const char* Name;
-        int(*Func)(int, const char**);
+        int (*Func)(int, const char**);
     };
 
-    static struct SubCommandDefinition SubCommandDefinitions[] =
-    {
+    static struct SubCommandDefinition SubCommandDefinitions[] = {
         {"app1", app1},
         {"app2", app1},
     };
-}
+} // namespace
 
 int main(int argc, const char** argv)
 {

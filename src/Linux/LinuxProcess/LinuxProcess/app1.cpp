@@ -1,3 +1,4 @@
+#include "const.hpp"
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -6,7 +7,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "const.hpp"
 
 int app1(int argc, const char** argv)
 {
