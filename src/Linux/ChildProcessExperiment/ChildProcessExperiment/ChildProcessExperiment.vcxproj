@@ -11,9 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{a4b2c04e-98df-4d1c-af96-169e48ff9480}</ProjectGuid>
+    <ProjectGuid>{5da5f7ce-8ae2-4836-abef-05d27950a9ed}</ProjectGuid>
     <Keyword>Linux</Keyword>
-    <RootNamespace>SendFd</RootNamespace>
+    <RootNamespace>SockWithAncillaryMessage</RootNamespace>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <ApplicationType>Linux</ApplicationType>
     <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
@@ -32,18 +32,55 @@
   <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <MultiProcNumber>4</MultiProcNumber>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <MultiProcNumber>4</MultiProcNumber>
+  </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="AncillaryDataSocket.cpp" />
+    <ClCompile Include="Base.cpp" />
+    <ClCompile Include="Client.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Request.cpp" />
+    <ClCompile Include="Service.cpp" />
+    <ClCompile Include="SignalHandler.cpp" />
+    <ClCompile Include="Subchannel.cpp" />
+    <ClCompile Include="Wrappers.cpp" />
+    <ClCompile Include="WriteBuffer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AncillaryDataSocket.hpp" />
+    <ClInclude Include="Base.hpp" />
+    <ClInclude Include="BinaryReader.hpp" />
+    <ClInclude Include="BinaryWriter.hpp" />
+    <ClInclude Include="Client.hpp" />
+    <ClInclude Include="ErrnoExceptions.hpp" />
+    <ClInclude Include="ExactBytesIO.hpp" />
+    <ClInclude Include="Request.hpp" />
+    <ClInclude Include="Service.hpp" />
+    <ClInclude Include="SignalHandler.hpp" />
+    <ClInclude Include="Subchannel.hpp" />
+    <ClInclude Include="UniqueResource.hpp" />
+    <ClInclude Include="Wrappers.hpp" />
+    <ClInclude Include="WriteBuffer.hpp" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
+    <Link>
+      <LibraryDependencies>pthread</LibraryDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
+    <Link>
+      <LibraryDependencies>pthread</LibraryDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
