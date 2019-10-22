@@ -3,10 +3,11 @@
 #include "Service.hpp"
 #include "AncillaryDataSocket.hpp"
 #include "Base.hpp"
+#include "MiscHelpers.hpp"
 #include "SignalHandler.hpp"
+#include "SocketHelpers.hpp"
 #include "Subchannel.hpp"
 #include "UniqueResource.hpp"
-#include "Wrappers.hpp"
 #include "WriteBuffer.hpp"
 #include <algorithm>
 #include <array>
@@ -33,34 +34,13 @@ namespace
     std::unique_ptr<AncillaryDataSocket> g_MainChannel;
 } // namespace
 
-void* ServiceThreadFunc(void* arg);
-int ServiceMain(UniqueFd sockFd);
-bool HandleSignalDataInput();
-bool HandleMainChannelInput();
-bool HandleMainChannelOutput();
+[[nodiscard]] bool HandleSignalDataInput();
+[[nodiscard]] bool HandleMainChannelInput();
+[[nodiscard]] bool HandleMainChannelOutput();
 
-pthread_t StartService(ServiceArgs* args)
+int ServiceMain(int mainChannelFd)
 {
-    auto maybeServiceThreadId = CreateThreadWithMyDefault(ServiceThreadFunc, args, 0);
-    if (!maybeServiceThreadId)
-    {
-        FatalErrorAbort(errno, "pthread_create");
-    }
-
-    return *maybeServiceThreadId;
-}
-
-void* ServiceThreadFunc(void* arg)
-{
-    const auto pArgs = reinterpret_cast<ServiceArgs*>(arg);
-    pArgs->ExitCode = ServiceMain(std::move(pArgs->ControlSocket));
-    std::printf("service: closing\n");
-    return nullptr;
-}
-
-int ServiceMain(UniqueFd sockFd)
-{
-    g_MainChannel = std::make_unique<AncillaryDataSocket>(std::move(sockFd));
+    g_MainChannel = std::make_unique<AncillaryDataSocket>(mainChannelFd);
 
     SetupSignalHandlers();
 
@@ -117,8 +97,7 @@ bool HandleSignalDataInput()
     int signum;
     ssize_t readBytes;
 
-    readBytes = ReadExactBytes(g_SignalDataPipeReadEnd, &signum, sizeof(int));
-    if (readBytes == -1)
+    if (!ReadExactBytes(g_SignalDataPipeReadEnd, &signum, sizeof(int)))
     {
         FatalErrorAbort(errno, "read");
     }
@@ -157,7 +136,7 @@ bool HandleSignalDataInput()
         data.ProcessID = siginfo.si_pid;
         data.Code = siginfo.si_code;
         data.Status = siginfo.si_status;
-        if (!g_MainChannel->Send(&data, sizeof(data), true))
+        if (!g_MainChannel->SendBuffered(&data, sizeof(data), BlockingFlag::NonBlocking))
         {
             return false;
         }
@@ -174,17 +153,8 @@ bool HandleSignalDataInput()
 bool HandleMainChannelInput()
 {
     std::byte dummy;
-    const ssize_t readBytes = g_MainChannel->Recv(&dummy, 1, false);
-    if (readBytes == -1)
-    {
-        if (IsConnectionClosedError(errno))
-        {
-            return false;
-        }
-
-        FatalErrorAbort(errno, "recvmsg");
-    }
-    else if (readBytes == 0)
+    const ssize_t bytesReceived = g_MainChannel->Recv(&dummy, 1, BlockingFlag::Blocking);
+    if (!HandleRecvResult(BlockingFlag::Blocking, "recvmsg", bytesReceived, errno))
     {
         // Connection closed.
         return false;
@@ -203,7 +173,7 @@ bool HandleMainChannelInput()
 
 bool HandleMainChannelOutput()
 {
-    if (!g_MainChannel->Flush())
+    if (!g_MainChannel->Flush(BlockingFlag::NonBlocking))
     {
         return false;
     }

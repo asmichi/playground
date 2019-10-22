@@ -6,12 +6,6 @@
 #include <cstdint>
 #include <pthread.h>
 
-struct ServiceArgs final
-{
-    UniqueFd ControlSocket;
-    int ExitCode;
-};
-
 struct ChildExitNotification
 {
     int64_t Token;
@@ -24,4 +18,4 @@ struct ChildExitNotification
     int32_t Padding1;
 };
 
-[[nodiscard]] pthread_t StartService(ServiceArgs* args);
+[[nodiscard]] int ServiceMain(int mainChannelFd);

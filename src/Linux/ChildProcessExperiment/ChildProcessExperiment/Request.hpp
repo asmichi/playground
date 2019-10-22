@@ -24,6 +24,7 @@ struct Request final
     std::unique_ptr<const std::byte[]> Data;
     std::uint64_t Token;
     std::uint32_t Flags;
+    const char* WorkingDirectory;
     const char* ExecutablePath;
     std::vector<const char*> Argv;
     std::vector<const char*> Envp;

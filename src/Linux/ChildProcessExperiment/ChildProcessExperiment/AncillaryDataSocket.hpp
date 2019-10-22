@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Base.hpp"
 #include "UniqueResource.hpp"
 #include "WriteBuffer.hpp"
 #include <cstddef>
@@ -22,18 +23,18 @@ public:
     AncillaryDataSocket(UniqueFd&& sockFd) noexcept;
 
     [[nodiscard]] bool SendExactBytes(const void* buf, std::size_t len) noexcept;
-    [[nodiscard]] bool Send(const void* buf, std::size_t len, bool nonblocking) noexcept;
+    [[nodiscard]] bool SendBuffered(const void* buf, std::size_t len, BlockingFlag blocking) noexcept;
     [[nodiscard]] bool SendExactBytesWithFd(const void* buf, std::size_t len, const int* fds, std::size_t fdCount) noexcept;
-    [[nodiscard]] ssize_t SendWithFd(const void* buf, std::size_t len, const int* fds, std::size_t fdCount, bool nonblocking) noexcept;
-    bool Flush() noexcept;
-    bool HasPendingData() noexcept { return sendBuffer_.HasPendingData(); }
+    [[nodiscard]] bool SendBufferedWithFd(const void* buf, std::size_t len, const int* fds, std::size_t fdCount, BlockingFlag blocking) noexcept;
+    [[nodiscard]] bool Flush(BlockingFlag blocking) noexcept;
+    [[nodiscard]] bool HasPendingData() noexcept { return sendBuffer_.HasPendingData(); }
 
-    [[nodiscard]] ssize_t Recv(void* buf, std::size_t len, bool nonblocking) noexcept;
+    [[nodiscard]] ssize_t Recv(void* buf, std::size_t len, BlockingFlag blocking) noexcept;
     [[nodiscard]] bool RecvExactBytes(void* buf, std::size_t len) noexcept;
 
-    int GetFd() const noexcept { return fd_.Get(); }
+    [[nodiscard]] int GetFd() const noexcept { return fd_.Get(); }
 
-    std::size_t ReceivedFdCount() const noexcept { return receivedFds_.size(); }
+    [[nodiscard]] std::size_t ReceivedFdCount() const noexcept { return receivedFds_.size(); }
 
     [[nodiscard]] std::optional<UniqueFd> PopReceivedFd() noexcept
     {
@@ -48,8 +49,6 @@ public:
     }
 
 private:
-    [[nodiscard]] ssize_t SendWithFdImpl(const void* buf, std::size_t len, const int* fds, std::size_t fdCount, bool nonblocking) noexcept;
-
     UniqueFd fd_;
     std::queue<UniqueFd> receivedFds_;
     WriteBuffer sendBuffer_;

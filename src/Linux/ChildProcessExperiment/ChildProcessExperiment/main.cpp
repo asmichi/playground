@@ -3,8 +3,8 @@
 #include "AncillaryDataSocket.hpp"
 #include "Base.hpp"
 #include "Client.hpp"
+#include "MiscHelpers.hpp"
 #include "Service.hpp"
-#include "Wrappers.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -14,8 +14,17 @@
 
 namespace
 {
+    struct ServiceArgs final
+    {
+        UniqueFd ControlSocket;
+        int ExitCode;
+    };
+
     ServiceArgs g_ServiceArgs;
 }
+
+pthread_t StartService(ServiceArgs* args);
+void* ServiceThreadFunc(void* arg);
 
 int main(int argc, const char** argv)
 {
@@ -43,4 +52,24 @@ int main(int argc, const char** argv)
     std::printf("service exited with: %d\n", g_ServiceArgs.ExitCode);
 
     return clientExitCode;
+}
+
+pthread_t StartService(ServiceArgs* args)
+{
+    auto maybeServiceThreadId = CreateThreadWithMyDefault(ServiceThreadFunc, args, 0);
+    if (!maybeServiceThreadId)
+    {
+        FatalErrorAbort(errno, "pthread_create");
+    }
+
+    return *maybeServiceThreadId;
+}
+
+void* ServiceThreadFunc(void* arg)
+{
+    const auto pArgs = reinterpret_cast<ServiceArgs*>(arg);
+    auto sock = std::move(pArgs->ControlSocket);
+    pArgs->ExitCode = ServiceMain(sock.Get());
+    std::printf("service: closing\n");
+    return nullptr;
 }

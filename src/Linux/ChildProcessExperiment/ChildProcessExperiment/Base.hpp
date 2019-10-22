@@ -17,10 +17,16 @@ private:
     const char* const description_;
 };
 
+enum class BlockingFlag : bool
+{
+    Blocking = false,
+    NonBlocking = true,
+};
 
+void PutFatalError(const char* str) noexcept;
 void PutFatalError(int err, const char* str) noexcept;
 [[noreturn]] void FatalErrorAbort(int err, const char* str) noexcept;
 [[noreturn]] void FatalErrorExit(int err, const char* str) noexcept;
 
-inline bool IsWouldBlockError(int err) { return err == EAGAIN || err == EWOULDBLOCK; }
-inline bool IsConnectionClosedError(int err) noexcept { return err == ECONNRESET || err == EPIPE; }
+[[noreturn]] inline bool IsWouldBlockError(int err) { return err == EAGAIN || err == EWOULDBLOCK; }
+[[noreturn]] inline bool IsConnectionClosedError(int err) noexcept { return err == ECONNRESET || err == EPIPE; }

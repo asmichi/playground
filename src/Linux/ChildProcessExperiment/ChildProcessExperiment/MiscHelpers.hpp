@@ -2,9 +2,8 @@
 
 #pragma once
 
-// Miscellaneous wrapper functions.
+// Miscellaneous helper functions.
 
-#include "ExactBytesIO.hpp"
 #include "UniqueResource.hpp"
 #include <array>
 #include <optional>
@@ -22,6 +21,7 @@ struct pollfd;
 [[nodiscard]] bool ReadExactBytes(int fd, void* buf, std::size_t len) noexcept;
 [[nodiscard]] bool WriteExactBytes(int fd, const void* buf, std::size_t len) noexcept;
 [[nodiscard]] int poll_restarting(struct pollfd* fds, unsigned int nfds, int timeout) noexcept;
+[[nodiscard]] int chdir_restarting(const char* path) noexcept;
 
 // RAII wrappers.
 struct PipeEnds

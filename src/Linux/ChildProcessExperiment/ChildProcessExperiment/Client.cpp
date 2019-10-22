@@ -3,9 +3,9 @@
 #include "Client.hpp"
 #include "AncillaryDataSocket.hpp"
 #include "Base.hpp"
+#include "MiscHelpers.hpp"
 #include "Request.hpp"
 #include "Service.hpp"
-#include "Wrappers.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -32,7 +32,16 @@ int DoClient(UniqueFd sockFd)
             Request r{};
             r.Token = 457;
             r.Flags = 0;
-            r.ExecutablePath = "/bin/echo";
+            if (i != 2)
+            {
+                r.WorkingDirectory = nullptr;
+                r.ExecutablePath = "/bin/echo";
+            }
+            else
+            {
+                r.WorkingDirectory = "/tmp";
+                r.ExecutablePath = "/bin/pwd";
+            }
             r.Argv.push_back(r.ExecutablePath);
             r.Argv.push_back(arg1);
             r.Argv.push_back(nullptr);
@@ -65,6 +74,11 @@ int DoClient(UniqueFd sockFd)
             }
 
             std::printf("client: got response: %u, %u\n", response[0], response[1]);
+
+            if (response[0] != 0)
+            {
+                continue;
+            }
 
             ChildExitNotification data;
             if (!pMainChannel->RecvExactBytes(&data, sizeof(data)))

@@ -1,7 +1,8 @@
 // Copyright (c) @asmichi (https://github.com/asmichi). Licensed under the MIT License. See LICENCE in the project root for details.
 
-#include "Wrappers.hpp"
+#include "MiscHelpers.hpp"
 #include "Base.hpp"
+#include "ExactBytesIO.hpp"
 #include "UniqueResource.hpp"
 #include <array>
 #include <cerrno>
@@ -80,6 +81,17 @@ int poll_restarting(struct pollfd* fds, unsigned int nfds, int timeout) noexcept
     do
     {
         ret = poll(fds, nfds, timeout);
+    } while (ret < 0 && (errno == EINTR || errno == EAGAIN));
+    return ret;
+}
+
+
+int chdir_restarting(const char* path) noexcept
+{
+    int ret;
+    do
+    {
+        ret = chdir(path);
     } while (ret < 0 && (errno == EINTR || errno == EAGAIN));
     return ret;
 }

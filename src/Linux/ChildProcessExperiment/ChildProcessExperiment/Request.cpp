@@ -49,6 +49,7 @@ void DeserializeRequest(Request* r, std::unique_ptr<const std::byte[]> data, std
         r->Data = std::move(data);
         r->Token = br.Read<std::uint64_t>();
         r->Flags = br.Read<std::uint32_t>();
+        r->WorkingDirectory = br.ReadString();
         r->ExecutablePath = br.ReadString();
         ReadStringArray(br, &r->Argv);
         ReadStringArray(br, &r->Envp);
@@ -69,6 +70,7 @@ std::vector<std::byte> SerializeRequest(const Request& r)
     BinaryWriter bw;
     bw.Write(r.Token);
     bw.Write(r.Flags);
+    bw.WriteString(r.WorkingDirectory);
     bw.WriteString(r.ExecutablePath);
     WriteStringArray(bw, r.Argv);
     WriteStringArray(bw, r.Envp);

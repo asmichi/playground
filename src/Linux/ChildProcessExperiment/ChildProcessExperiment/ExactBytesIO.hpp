@@ -1,6 +1,8 @@
 // Copyright (c) @asmichi (https://github.com/asmichi). Licensed under the MIT License. See LICENCE in the project root for details.
 
-#include "Wrappers.hpp"
+#pragma once
+
+#include "Base.hpp"
 #include <cassert>
 #include <cerrno>
 #include <cstddef>
@@ -41,11 +43,15 @@ template<typename Func>
     while (offset < len)
     {
         ssize_t bytesWritten = f(byteBuf + offset, len - offset);
-        if (bytesWritten <= -1)
+        if (bytesWritten == 0)
+        {
+            // POSIX-conformant write & send will not return 0.
+            FatalErrorAbort(errno, "write/send returned 0!");
+        }
+        else if (bytesWritten <= -1)
         {
             return false;
         }
-        assert(bytesWritten != 0);
 
         offset += bytesWritten;
     }

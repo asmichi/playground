@@ -5,9 +5,9 @@
 #include "Base.hpp"
 #include "BinaryReader.hpp"
 #include "ErrnoExceptions.hpp"
+#include "MiscHelpers.hpp"
 #include "Request.hpp"
 #include "UniqueResource.hpp"
-#include "Wrappers.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -178,15 +178,27 @@ void Subchannel::HandleRequest(const Request& r)
             }
         };
 
+        auto reportError = [](int fd, int err) {
+            static_cast<void>(WriteExactBytes(fd, &err, sizeof(err)));
+        };
+
         dup2OrFail(pipe.WriteEnd, r.StdinFd, STDIN_FILENO);
         dup2OrFail(pipe.WriteEnd, r.StdoutFd, STDOUT_FILENO);
         dup2OrFail(pipe.WriteEnd, r.StderrFd, STDERR_FILENO);
 
+        if (r.WorkingDirectory != nullptr)
+        {
+            if (chdir_restarting(r.WorkingDirectory) == -1)
+            {
+                reportError(pipe.WriteEnd.Get(), errno);
+                _exit(1);
+            }
+        }
+
         // NOTE: POSIX specifies execve shall not modify argv and envp.
         execve(r.ExecutablePath, const_cast<char* const*>(&r.Argv[0]), const_cast<char* const*>(&r.Envp[0]));
 
-        int err = errno;
-        static_cast<void>(WriteExactBytes(pipe.WriteEnd.Get(), &err, sizeof(err)));
+        reportError(pipe.WriteEnd.Get(), errno);
         _exit(1);
     }
     else
