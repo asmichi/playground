@@ -2,7 +2,9 @@
 
 #include "AncillaryDataSocket.hpp"
 #include "Base.hpp"
-#include "Wrappers.hpp"
+#include "ExactBytesIO.hpp"
+#include "MiscHelpers.hpp"
+#include "SocketHelpers.hpp"
 #include <array>
 #include <cassert>
 #include <cerrno>
@@ -18,17 +20,6 @@
 
 namespace
 {
-    struct CmsgFds
-    {
-        static const constexpr std::size_t BufferSize = CMSG_SPACE(sizeof(int) * AncillaryDataSocket::MaxFdsPerCall);
-        alignas(cmsghdr) char Buffer[BufferSize];
-    };
-
-    constexpr int MakeSockFlags(bool nonblocking) noexcept
-    {
-        return (nonblocking ? MSG_DONTWAIT : 0) | MSG_NOSIGNAL;
-    }
-
     void EnqueueRemainingBytes(WriteBuffer& b, const void* buf, std::size_t len, ssize_t bytesSent, int err)
     {
         if (bytesSent > 0)
@@ -41,7 +32,8 @@ namespace
         }
         else if (bytesSent == 0)
         {
-            // Connection closed.
+            // POSIX-conformant send will not return 0.
+            FatalErrorAbort(errno, "send returned 0!");
         }
         else
         {
@@ -63,149 +55,46 @@ AncillaryDataSocket::AncillaryDataSocket(int sockFd) noexcept
 {
 }
 
-bool AncillaryDataSocket::Send(const void* buf, std::size_t len, bool nonblocking) noexcept
+bool AncillaryDataSocket::SendBuffered(const void* buf, std::size_t len, BlockingFlag blocking) noexcept
 {
-    ssize_t bytesSent = send_restarting(fd_.Get(), buf, len, MakeSockFlags(nonblocking));
+    ssize_t bytesSent = send_restarting(fd_.Get(), buf, len, MakeSockFlags(blocking));
     int err = errno;
     EnqueueRemainingBytes(sendBuffer_, buf, len, bytesSent, err);
     errno = err;
+    return HandleSendResult(blocking, "send", bytesSent, err);
+}
 
-    if (bytesSent > 0)
-    {
-        return true;
-    }
-    else if (bytesSent == 0)
-    {
-        // Connection closed.
-        return false;
-    }
-    else
-    {
-        if (IsWouldBlockError(err))
-        {
-            return true;
-        }
-        else if (IsConnectionClosedError(err))
-        {
-            return false;
-        }
-        else
-        {
-            FatalErrorAbort(err, "send");
-        }
-    }
+bool AncillaryDataSocket::SendBufferedWithFd(const void* buf, std::size_t len, const int* fds, std::size_t fdCount, BlockingFlag blocking) noexcept
+{
+    ssize_t bytesSent = ::SendWithFd(fd_.Get(), buf, len, fds, fdCount, blocking);
+    int err = errno;
+    EnqueueRemainingBytes(sendBuffer_, buf, len, bytesSent, err);
+    errno = err;
+    return HandleSendResult(blocking, "sendmsg", bytesSent, err);
 }
 
 bool AncillaryDataSocket::SendExactBytes(const void* buf, std::size_t len) noexcept
 {
-    // NOTE: SendExactBytes is by definition a blocking operation.
-    if (!Flush())
+    if (!Flush(BlockingFlag::Blocking))
     {
         return false;
     }
 
-    auto f = [this](const void* p, std::size_t partialLen) { return send_restarting(fd_.Get(), p, partialLen, MakeSockFlags(false)); };
-    if (!WriteExactBytes(f, buf, len))
-    {
-        if (IsConnectionClosedError(errno))
-        {
-            return false;
-        }
-        else
-        {
-            FatalErrorAbort(errno, "send");
-        }
-    }
-
-    return true;
+    return ::SendExactBytes(fd_.Get(), buf, len);
 }
 
 bool AncillaryDataSocket::SendExactBytesWithFd(const void* buf, std::size_t len, const int* fds, std::size_t fdCount) noexcept
 {
-    // NOTE: SendExactBytes is by definition a blocking operation.
-    if (!Flush())
+    if (!Flush(BlockingFlag::Blocking))
     {
         return false;
     }
 
-    // Make sure to send fds only once.
-    ssize_t bytesSent = SendWithFdImpl(buf, len, fds, fdCount, false);
-    if (bytesSent == 0)
-    {
-        // Connection closed.
-        return false;
-    }
-    else if (bytesSent <= -1)
-    {
-        int err = errno;
-        if (IsConnectionClosedError(err))
-        {
-            return false;
-        }
-        else
-        {
-            FatalErrorAbort(err, "sendmsg");
-        }
-    }
-
-    // Send out remaining bytes.
-    std::size_t positiveBytesSent = static_cast<std::size_t>(bytesSent);
-    if (positiveBytesSent >= len)
-    {
-        return true;
-    }
-    else
-    {
-        return SendExactBytes(static_cast<const std::byte*>(buf) + positiveBytesSent, len - positiveBytesSent);
-    }
+    return ::SendExactBytesWithFd(fd_.Get(), buf, len, fds, fdCount);
 }
 
-ssize_t AncillaryDataSocket::SendWithFd(const void* buf, std::size_t len, const int* fds, std::size_t fdCount, bool nonblocking) noexcept
-{
-    ssize_t bytesSent = SendWithFdImpl(buf, len, fds, fdCount, nonblocking);
-    int err = errno;
-    EnqueueRemainingBytes(sendBuffer_, buf, len, bytesSent, errno);
-    errno = err;
-    return bytesSent;
-}
-
-ssize_t AncillaryDataSocket::SendWithFdImpl(const void* buf, std::size_t len, const int* fds, std::size_t fdCount, bool nonblocking) noexcept
-{
-    if (fds == nullptr || fdCount == 0)
-    {
-        return Send(buf, len, nonblocking);
-    }
-
-    if (fdCount > MaxFdsPerCall)
-    {
-        errno = EINVAL;
-        return -1;
-    }
-
-    iovec iov;
-    msghdr msg;
-    CmsgFds cmsgFds;
-
-    iov.iov_base = const_cast<void*>(buf);
-    iov.iov_len = len;
-    msg.msg_name = NULL;
-    msg.msg_namelen = 0;
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-    msg.msg_control = cmsgFds.Buffer;
-    msg.msg_controllen = CmsgFds::BufferSize;
-    msg.msg_flags = 0;
-
-    struct cmsghdr* pcmsghdr = CMSG_FIRSTHDR(&msg);
-    pcmsghdr->cmsg_len = CMSG_LEN(sizeof(int) * fdCount);
-    pcmsghdr->cmsg_level = SOL_SOCKET;
-    pcmsghdr->cmsg_type = SCM_RIGHTS;
-    std::memcpy(CMSG_DATA(pcmsghdr), fds, sizeof(int) * fdCount);
-
-    return sendmsg_restarting(fd_.Get(), &msg, 0);
-}
-
-bool AncillaryDataSocket::Flush() noexcept
+// Send data in sendBuffer_ until all data is sent or EWOULDBLOCK is returned.
+bool AncillaryDataSocket::Flush(BlockingFlag blocking) noexcept
 {
     while (sendBuffer_.HasPendingData())
     {
@@ -213,22 +102,10 @@ bool AncillaryDataSocket::Flush() noexcept
         std::size_t len;
         std::tie(p, len) = sendBuffer_.GetPendingData();
 
-        const ssize_t bytesSent = send_restarting(fd_.Get(), p, len, false);
-        if (bytesSent == 0)
+        const ssize_t bytesSent = send_restarting(fd_.Get(), p, len, MakeSockFlags(blocking));
+        if (!HandleSendResult(blocking, "send", bytesSent, errno))
         {
-            // Connection closed.
             return false;
-        }
-        else if (bytesSent <= -1)
-        {
-            if (IsConnectionClosedError(errno))
-            {
-                return false;
-            }
-            else
-            {
-                FatalErrorAbort(errno, "send");
-            }
         }
 
         sendBuffer_.Dequeue(static_cast<std::size_t>(bytesSent));
@@ -239,12 +116,11 @@ bool AncillaryDataSocket::Flush() noexcept
 
 bool AncillaryDataSocket::RecvExactBytes(void* buf, std::size_t len) noexcept
 {
-    // NOTE: RecvExactBytes is by definition a blocking operation.
-    auto f = [this](void* p, std::size_t partialLen) { return Recv(p, partialLen, false); };
+    auto f = [this](void* p, std::size_t partialLen) { return Recv(p, partialLen, BlockingFlag::Blocking); };
     return ReadExactBytes(f, buf, len);
 }
 
-ssize_t AncillaryDataSocket::Recv(void* buf, std::size_t len, bool nonblocking) noexcept
+ssize_t AncillaryDataSocket::Recv(void* buf, std::size_t len, BlockingFlag blocking) noexcept
 {
     iovec iov;
     msghdr msg;
@@ -252,7 +128,7 @@ ssize_t AncillaryDataSocket::Recv(void* buf, std::size_t len, bool nonblocking) 
 
     iov.iov_base = buf;
     iov.iov_len = len;
-    msg.msg_name = NULL;
+    msg.msg_name = nullptr;
     msg.msg_namelen = 0;
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
@@ -260,7 +136,7 @@ ssize_t AncillaryDataSocket::Recv(void* buf, std::size_t len, bool nonblocking) 
     msg.msg_controllen = CmsgFds::BufferSize;
     msg.msg_flags = 0;
 
-    const ssize_t receivedBytes = recvmsg_restarting(fd_.Get(), &msg, MakeSockFlags(nonblocking) | MSG_CMSG_CLOEXEC);
+    const ssize_t receivedBytes = recvmsg_restarting(fd_.Get(), &msg, MakeSockFlags(blocking) | MSG_CMSG_CLOEXEC);
     if (receivedBytes == -1)
     {
         return -1;
@@ -274,7 +150,7 @@ ssize_t AncillaryDataSocket::Recv(void* buf, std::size_t len, bool nonblocking) 
         if (pcmsghdr->cmsg_level != SOL_SOCKET || pcmsghdr->cmsg_type != SCM_RIGHTS)
         {
             // Logic error: The counterpart has a bug or we are connected with an untrusted counterpart.
-            std::fprintf(stderr, "Received unknown cmsg (cmsg_level: %d, cmsg_type: %d). Shutting down the connection.\n", pcmsghdr->cmsg_level, pcmsghdr->cmsg_type);
+            TRACE_FATAL("Received unknown cmsg (cmsg_level: %d, cmsg_type: %d). Shutting down the connection.\n", pcmsghdr->cmsg_level, pcmsghdr->cmsg_type);
             shouldShutdown = true;
             // Continue to read so that we will not leak received fds.
             continue;

@@ -12,18 +12,33 @@
 const std::uint32_t MaxMessageLength = 2 * 1024 * 1024;
 const std::uint32_t MaxStringArrayCount = 64 * 1024;
 
-enum RequestFlags
+// NOTE: Make sure to sync with the client.
+enum class RequestCommand : std::uint32_t
+{
+    SpawnProcess = 0,
+    SendSignal = 1,
+};
+
+enum class AbstractSignal : std::uint32_t
+{
+    Interrupt = 2,
+    Kill = 9,
+    Termination = 15,
+};
+
+enum SpawnProcessRequestFlags
 {
     RequestFlagsRedirectStdin = 1 << 0,
     RequestFlagsRedirectStdout = 1 << 1,
     RequestFlagsRedirectStderr = 1 << 2,
 };
 
-struct Request final
+struct SpawnProcessRequest final
 {
     std::unique_ptr<const std::byte[]> Data;
     std::uint64_t Token;
     std::uint32_t Flags;
+    const char* WorkingDirectory;
     const char* ExecutablePath;
     std::vector<const char*> Argv;
     std::vector<const char*> Envp;
@@ -32,6 +47,12 @@ struct Request final
     UniqueFd StderrFd;
 };
 
-// NOTE: DeserializeRequest does not set fds.
-void DeserializeRequest(Request* r, std::unique_ptr<const std::byte[]> data, std::size_t length);
-std::vector<std::byte> SerializeRequest(const Request& r);
+struct SendSignalRequest final
+{
+    std::uint64_t Token;
+    AbstractSignal Signal;
+};
+
+// NOTE: DeserializeSpawnProcessRequest does not set fds.
+void DeserializeSpawnProcessRequest(SpawnProcessRequest* r, std::unique_ptr<const std::byte[]> data, std::size_t length);
+void DeserializeSendSignalRequest(SendSignalRequest* r, std::unique_ptr<const std::byte[]> data, std::size_t length);

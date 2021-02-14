@@ -30,8 +30,8 @@ public:
         return value;
     }
 
-    // NOTE: Pointers returned by ReadString will become invalid When data becomes invalid.
-    const char* ReadString()
+    // NOTE: Pointers returned by GetString will become invalid When data becomes invalid.
+    const char* GetStringAndAdvance()
     {
         const std::uint32_t bytes = Read<std::uint32_t>();
         if (bytes == 0)

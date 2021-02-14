@@ -3,9 +3,10 @@
 #include "Client.hpp"
 #include "AncillaryDataSocket.hpp"
 #include "Base.hpp"
+#include "BinaryWriter.hpp"
+#include "MiscHelpers.hpp"
 #include "Request.hpp"
 #include "Service.hpp"
-#include "Wrappers.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -13,7 +14,37 @@
 #include <memory>
 #include <pthread.h>
 #include <stdexcept>
+#include <vector>
 #include <unistd.h>
+
+namespace
+{
+    void WriteStringArray(BinaryWriter& bw, const std::vector<const char*>& data)
+    {
+        if (data.size() > MaxStringArrayCount)
+        {
+            std::abort();
+        }
+
+        bw.Write(static_cast<std::uint32_t>(data.size()));
+        for (auto s : data)
+        {
+            bw.WriteString(s);
+        }
+    }
+
+    std::vector<std::byte> SerializeRequest(const SpawnProcessRequest& r)
+    {
+        BinaryWriter bw;
+        bw.Write(r.Token);
+        bw.Write(r.Flags);
+        bw.WriteString(r.WorkingDirectory);
+        bw.WriteString(r.ExecutablePath);
+        WriteStringArray(bw, r.Argv);
+        WriteStringArray(bw, r.Envp);
+        return bw.Detach();
+    }
+} // namespace
 
 AncillaryDataSocket CreateSubchannel(AncillaryDataSocket* pMainChannel);
 
@@ -29,7 +60,7 @@ int DoClient(UniqueFd sockFd)
             char arg1[] = "hoge A";
             arg1[5] += i;
 
-            Request r{};
+            SpawnProcessRequest r{};
             r.Token = 457;
             r.Flags = 0;
             r.ExecutablePath = "/bin/echo";
@@ -49,22 +80,23 @@ int DoClient(UniqueFd sockFd)
                 return 1;
             }
 
-            auto messageBodyLength = static_cast<std::uint32_t>(message.size());
-            if (!localSock.SendExactBytes(&messageBodyLength, sizeof(std::uint32_t))
+            const auto messageBodyLength = static_cast<std::uint32_t>(message.size());
+            const std::uint32_t header[2]{0, messageBodyLength};
+            if (!localSock.SendExactBytes(header, sizeof(header))
                 || !localSock.SendExactBytes(&message[0], messageBodyLength))
             {
                 perror("client: send");
                 return 1;
             }
 
-            std::uint32_t response[2];
+            std::int32_t response[2];
             if (!localSock.RecvExactBytes(response, sizeof(response)))
             {
                 perror("client: recv");
                 return 1;
             }
 
-            std::printf("client: got response: %u, %u\n", response[0], response[1]);
+            std::printf("client: got response: %d, %d\n", response[0], response[1]);
 
             ChildExitNotification data;
             if (!pMainChannel->RecvExactBytes(&data, sizeof(data)))
@@ -73,7 +105,7 @@ int DoClient(UniqueFd sockFd)
                 return 1;
             }
 
-            std::printf("client: child %d exited: %u, %u\n", data.ProcessID, data.Code, data.Status);
+            std::printf("client: child %d exited: %u\n", data.ProcessID, data.Status);
         }
 
         return 0;

@@ -6,22 +6,18 @@
 #include <cstdint>
 #include <pthread.h>
 
-struct ServiceArgs final
-{
-    UniqueFd ControlSocket;
-    int ExitCode;
-};
-
 struct ChildExitNotification
 {
-    int64_t Token;
+    uint64_t Token;
     // ProcessID
     int32_t ProcessID;
-    // Exit status or signal number
+    // Exit status on CLD_EXITED; -N on CLD_KILLED and CLD_DUMPED where N is the signal number.
     int32_t Status;
-    // Code : CLD_EXITED, CLD_KILLED, CLD_DUMPED
-    int32_t Code;
-    int32_t Padding1;
 };
+static_assert(sizeof(ChildExitNotification) == 16);
 
-[[nodiscard]] pthread_t StartService(ServiceArgs* args);
+[[nodiscard]] int ServiceMain(int mainChannelFd);
+[[nodiscard]] bool NotifyServiceOfChildRegistration();
+
+// Interface for the signal handler.
+void NotifyServiceOfSignal(int signum);

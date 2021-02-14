@@ -2,7 +2,5 @@
 
 #pragma once
 
-#include "UniqueResource.hpp"
-#include <sys/types.h>
-
-void SetupSignalHandlers();
+class ChildProcessStateMap;
+extern ChildProcessStateMap g_ChildProcessStateMap;

@@ -4,18 +4,29 @@
 #include "AncillaryDataSocket.hpp"
 #include "Base.hpp"
 #include "BinaryReader.hpp"
-#include "ErrnoExceptions.hpp"
+#include "ChildProcessState.hpp"
+#include "ErrorCodeExceptions.hpp"
+#include "Globals.hpp"
+#include "MiscHelpers.hpp"
 #include "Request.hpp"
+#include "Service.hpp"
 #include "UniqueResource.hpp"
-#include "Wrappers.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <poll.h>
 #include <unistd.h>
 #include <vector>
+
+struct RawRequest final
+{
+    RequestCommand Command;
+    uint32_t BodyLength;
+    std::unique_ptr<std::byte[]> Body;
+};
 
 class Subchannel final
 {
@@ -27,11 +38,18 @@ public:
 private:
     static void* ThreadFunc(void* arg);
     void MainLoop();
-    void ReadRequest(Request* r);
-    void HandleRequest(const Request& r);
-    void SendSuccess(std::uint32_t pid);
+
+    void HandleProcessCreationCommand(std::unique_ptr<std::byte[]> body, std::uint32_t bodyLength);
+    void ToProcessCreationRequest(SpawnProcessRequest* r, std::unique_ptr<std::byte[]> body, std::uint32_t bodyLength);
+    void HandleProcessCreationRequest(const SpawnProcessRequest& r);
+
+    void HandleSendSignalCommand(std::unique_ptr<std::byte[]> body, std::uint32_t bodyLength);
+    std::optional<int> ToNativeSignal(AbstractSignal abstractSignal) noexcept;
+
+    void RecvRawRequest(RawRequest* r);
+    void SendSuccess(std::int32_t data);
     void SendError(int err);
-    void SendResponse(int err, std::uint32_t pid);
+    void SendResponse(int err, std::int32_t data);
 
     AncillaryDataSocket sock_;
 };
@@ -64,8 +82,10 @@ void* Subchannel::ThreadFunc(void* arg)
     {
         subchannel.MainLoop();
     }
-    catch (const CommunicationError&)
+    catch ([[maybe_unused]] const CommunicationError& exn)
     {
+        // NOTE: Orderly shutdown (errno=0) also reaches here.
+        TRACE_INFO("Subchannel %d disconnected: %d\n", sockFd, exn.GetError());
     }
     return nullptr;
 }
@@ -73,8 +93,6 @@ void* Subchannel::ThreadFunc(void* arg)
 void Subchannel::MainLoop()
 {
     std::int32_t err = 0;
-
-    std::printf("received subchannel fd: %d\n", sock_.GetFd());
 
     // Report successful creation.
     if (!WriteExactBytes(sock_.GetFd(), &err, sizeof(err)))
@@ -84,47 +102,51 @@ void Subchannel::MainLoop()
 
     while (true)
     {
-        Request r;
         try
         {
-            ReadRequest(&r);
+            RawRequest rawRequest;
+            RecvRawRequest(&rawRequest);
+
+            switch (rawRequest.Command)
+            {
+            case RequestCommand::SpawnProcess:
+                HandleProcessCreationCommand(std::move(rawRequest.Body), rawRequest.BodyLength);
+                break;
+
+            case RequestCommand::SendSignal:
+                HandleSendSignalCommand(std::move(rawRequest.Body), rawRequest.BodyLength);
+                break;
+
+            default:
+                TRACE_ERROR("Unknown command: %u\n", static_cast<std::uint32_t>(rawRequest.Command));
+                static_cast<void>(SendError(ErrorCode::InvalidRequest));
+                break;
+            }
         }
         catch (const BadRequestError& exn)
         {
             static_cast<void>(SendError(exn.GetError()));
-            return;
         }
-
-        HandleRequest(r);
     }
 }
 
-void Subchannel::ReadRequest(Request* r)
+void Subchannel::HandleProcessCreationCommand(std::unique_ptr<std::byte[]> body, std::uint32_t bodyLength)
 {
-    std::uint32_t length;
-    if (!sock_.RecvExactBytes(&length, sizeof(length)))
-    {
-        throw BadRequestError(errno);
-    }
+    SpawnProcessRequest r;
+    ToProcessCreationRequest(&r, std::move(body), bodyLength);
+    HandleProcessCreationRequest(r);
+}
 
-    if (length > MaxReqeuestLength)
-    {
-        throw BadRequestError(E2BIG);
-    }
-
-    auto buf = std::make_unique<std::byte[]>(length);
-    if (!sock_.RecvExactBytes(&buf[0], length))
-    {
-        throw BadRequestError(errno);
-    }
-
-    DeserializeRequest(r, std::move(buf), length);
+void Subchannel::ToProcessCreationRequest(SpawnProcessRequest* r, std::unique_ptr<std::byte[]> body, std::uint32_t bodyLength)
+{
+    DeserializeSpawnProcessRequest(r, std::move(body), bodyLength);
 
     auto popOrThrow = [this] {
         auto maybeFd = sock_.PopReceivedFd();
         if (!maybeFd)
         {
-            throw BadRequestError(EINVAL);
+            TRACE_ERROR("Insufficient fds in a request.\n");
+            throw BadRequestError(ErrorCode::InvalidRequest);
         }
         return std::move(*maybeFd);
     };
@@ -143,20 +165,31 @@ void Subchannel::ReadRequest(Request* r)
     }
     if (sock_.ReceivedFdCount() != 0)
     {
-        throw BadRequestError(EINVAL);
+        TRACE_ERROR("Too many fds in a request. Flags=%x, %zu fds remaining.\n", r->Flags, sock_.ReceivedFdCount());
+        throw BadRequestError(ErrorCode::InvalidRequest);
     }
 }
 
-void Subchannel::HandleRequest(const Request& r)
+void Subchannel::HandleProcessCreationRequest(const SpawnProcessRequest& r)
 {
-    auto maybePipe = CreatePipe();
-    if (!maybePipe)
+    auto maybeOutPipe = CreatePipe();
+    if (!maybeOutPipe)
+    {
+        SendResponse(errno, 0);
+        return;
+    }
+    auto maybeInPipe = CreatePipe();
+    if (!maybeInPipe)
     {
         SendResponse(errno, 0);
         return;
     }
 
-    auto pipe = std::move(*maybePipe);
+    // NOTE: These fds may be inherited by multiple forked processes.
+    // parent -> child : To signal "the parent is ready; perform exec"
+    auto outPipe = std::move(*maybeOutPipe);
+    // child -> parent : To signal exec error (or no write on success)
+    auto inPipe = std::move(*maybeInPipe);
 
     int childPid = fork();
     if (childPid == -1)
@@ -166,6 +199,9 @@ void Subchannel::HandleRequest(const Request& r)
     else if (childPid == 0)
     {
         // child
+        outPipe.WriteEnd.Reset();
+        inPipe.ReadEnd.Reset();
+
         auto dup2OrFail = [](const UniqueFd& writeEnd, const UniqueFd& src, int dst) {
             if (src.IsValid())
             {
@@ -178,37 +214,182 @@ void Subchannel::HandleRequest(const Request& r)
             }
         };
 
-        dup2OrFail(pipe.WriteEnd, r.StdinFd, STDIN_FILENO);
-        dup2OrFail(pipe.WriteEnd, r.StdoutFd, STDOUT_FILENO);
-        dup2OrFail(pipe.WriteEnd, r.StderrFd, STDERR_FILENO);
+        auto reportError = [](int fd, int err) {
+            static_cast<void>(WriteExactBytes(fd, &err, sizeof(err)));
+        };
 
+        dup2OrFail(inPipe.WriteEnd, r.StdinFd, STDIN_FILENO);
+        dup2OrFail(inPipe.WriteEnd, r.StdoutFd, STDOUT_FILENO);
+        dup2OrFail(inPipe.WriteEnd, r.StderrFd, STDERR_FILENO);
+
+        if (r.WorkingDirectory != nullptr)
+        {
+            if (chdir_restarting(r.WorkingDirectory) == -1)
+            {
+                reportError(inPipe.WriteEnd.Get(), errno);
+                _exit(1);
+            }
+        }
+
+        // Wait for the parent to be ready
+        char c;
+        if (!ReadExactBytes(outPipe.ReadEnd.Get(), &c, 1))
+        {
+            // The parent has been killed; no point in continuing.
+            _exit(1);
+        }
+
+        // Always create a new process group.
+        setpgid(0, 0);
         // NOTE: POSIX specifies execve shall not modify argv and envp.
         execve(r.ExecutablePath, const_cast<char* const*>(&r.Argv[0]), const_cast<char* const*>(&r.Envp[0]));
 
-        int err = errno;
-        static_cast<void>(WriteExactBytes(pipe.WriteEnd.Get(), &err, sizeof(err)));
+        reportError(inPipe.WriteEnd.Get(), errno);
         _exit(1);
     }
     else
     {
         // parent
-        pipe.WriteEnd.Reset();
+        outPipe.ReadEnd.Reset();
+        inPipe.WriteEnd.Reset();
 
-        int err = 0;
-        if (ReadExactBytes(pipe.ReadEnd.Get(), &err, sizeof(err)))
+        // Register the child before the child performs exec.
+        g_ChildProcessStateMap.Allocate(childPid, r.Token);
+
+        // Send a reap request in case the child has already been killed and we have delayed reaping.
+        if (!NotifyServiceOfChildRegistration())
         {
-            SendResponse(err, 0);
+            FatalErrorAbort(errno, "write");
+        }
+
+        // Make the child to perform exec.
+        if (!WriteExactBytes(outPipe.WriteEnd.Get(), "", 1))
+        {
+            // The child has already been killed.
+            SendResponse(errno, 0);
             return;
         }
 
-        // At this point, execve was successful.
-        SendResponse(0, childPid);
+        int err = 0;
+        const bool execSuccessful = !ReadExactBytes(inPipe.ReadEnd.Get(), &err, sizeof(err));
+        if (execSuccessful)
+        {
+            SendResponse(0, childPid);
+        }
+        else
+        {
+            // Failed to execute the program: failed to dup2 or execve.
+            SendResponse(err, 0);
+        }
     }
 }
 
-void Subchannel::SendSuccess(std::uint32_t pid)
+void Subchannel::HandleSendSignalCommand(std::unique_ptr<std::byte[]> body, std::uint32_t bodyLength)
 {
-    SendResponse(0, pid);
+    SendSignalRequest r;
+    DeserializeSendSignalRequest(&r, std::move(body), bodyLength);
+
+    auto nativeSignal = ToNativeSignal(r.Signal);
+    if (!nativeSignal)
+    {
+        throw BadRequestError(ErrorCode::InvalidRequest);
+    }
+
+    auto pState = g_ChildProcessStateMap.GetByToken(r.Token);
+    if (!pState)
+    {
+        // The process has already been reaped.
+        SendSuccess(0);
+    }
+    else if (pState->SendSignal(nativeSignal.value()))
+    {
+        if (r.Signal == AbstractSignal::Termination)
+        {
+            // Also send SIGCONT to ensure termination.
+            static_cast<void>(pState->SendSignal(SIGCONT));
+        }
+
+        // Sent a signal.
+        SendSuccess(0);
+    }
+    else if (errno == ESRCH)
+    {
+        // The process has already been reaped.
+        SendSuccess(0);
+    }
+    else
+    {
+        SendError(errno);
+    }
+}
+
+std::optional<int> Subchannel::ToNativeSignal(AbstractSignal abstractSignal) noexcept
+{
+    switch (abstractSignal)
+    {
+    case AbstractSignal::Interrupt:
+        return SIGINT;
+
+    case AbstractSignal::Kill:
+        return SIGKILL;
+
+    case AbstractSignal::Termination:
+        return SIGTERM;
+
+    default:
+        return std::nullopt;
+    }
+}
+
+void Subchannel::RecvRawRequest(RawRequest* r)
+{
+    std::uint32_t commandAndLength[2];
+    if (!sock_.RecvExactBytes(&commandAndLength, sizeof(commandAndLength)))
+    {
+        // Throws even for a normal shutdown (errno = 0).
+        throw CommunicationError(errno);
+    }
+
+    const RequestCommand command = static_cast<RequestCommand>(commandAndLength[0]);
+    const std::uint32_t bodyLength = commandAndLength[1];
+
+    if (bodyLength > MaxReqeuestLength)
+    {
+        TRACE_ERROR("Request too big: %u\n", static_cast<unsigned int>(bodyLength));
+
+        // Discard the request body.
+        const size_t BufSize = 64 * 1024;
+        auto buf = std::make_unique<std::byte[]>(BufSize);
+        size_t totalReceivedBytes = 0;
+        while (totalReceivedBytes < bodyLength)
+        {
+            std::size_t bytesToReceive = std::min(BufSize, bodyLength - totalReceivedBytes);
+            ssize_t receivedBytes = sock_.Recv(buf.get(), bytesToReceive, BlockingFlag::Blocking);
+            if (receivedBytes <= 0)
+            {
+                throw new CommunicationError(errno);
+            }
+            totalReceivedBytes += receivedBytes;
+        }
+
+        throw BadRequestError(E2BIG);
+    }
+
+    auto body = std::make_unique<std::byte[]>(bodyLength);
+    if (!sock_.RecvExactBytes(&body[0], bodyLength))
+    {
+        // Throws even for a normal shutdown (errno = 0).
+        throw CommunicationError(errno);
+    }
+
+    r->BodyLength = bodyLength;
+    r->Body = std::move(body);
+    r->Command = command;
+}
+
+void Subchannel::SendSuccess(std::int32_t data)
+{
+    SendResponse(0, data);
 }
 
 void Subchannel::SendError(int err)
@@ -216,13 +397,13 @@ void Subchannel::SendError(int err)
     SendResponse(err, 0);
 }
 
-void Subchannel::SendResponse(int err, std::uint32_t pid)
+void Subchannel::SendResponse(int err, std::int32_t data)
 {
     static_assert(sizeof(int) == 4);
 
     std::byte buf[8];
     std::memcpy(&buf[0], &err, 4);
-    std::memcpy(&buf[4], &pid, 4);
+    std::memcpy(&buf[4], &data, 4);
     if (!sock_.SendExactBytes(buf, 8))
     {
         throw CommunicationError(errno);
