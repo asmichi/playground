@@ -5,5 +5,7 @@
 .vs/
 .vscode/
 __pycache__/
+Win32/
 bin/
 obj/
+x64/
