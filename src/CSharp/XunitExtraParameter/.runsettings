@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <EXTRA_PARAMETER_FOO>3178</EXTRA_PARAMETER_FOO>
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>
