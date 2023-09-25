@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!--<TargetFrameworks>net6.0;net472</TargetFrameworks>-->
+    <TargetFramework>net6.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <!--
+      https://github.com/dotnet/runtime/issues/38231: C++/CLI libraries may fail to load due to ijwhost.dll not being on the search path
+      https://github.com/dotnet/sdk/issues/24310: No Ijwhost.dll when referencing C++/CLR NuGet package from .NET 6 C# app
+      https://github.com/AmpScm/SharpProj/issues/25#issuecomment-1703611649
+
+      .NET Core C++/CLI DLLs import `_CorDllMain` from ijshost.dll
+    -->
+    <UseIJWHost>true</UseIJWHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asmichi.CxxCliClassLibrary" Version="0.0.0-alpha.4" />
+  </ItemGroup>
+
+</Project>

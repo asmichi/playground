@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Try the best for creating a C++/CLI-based NuGet package.
+  https://learn.microsoft.com/en-us/nuget/create-packages/supporting-multiple-target-frameworks#architecture-specific-folders
+-->
+<package>
+  <metadata>
+    <id>Asmichi.CxxCliClassLibrary</id>
+    <version>0.0.0.0-alpha.4</version>
+    <authors>asmichi</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">MIT</license>
+    <description>Asmichi.CxxCliPackage</description>
+    <copyright>$copyright$</copyright>
+    <dependencies>
+      <group targetFramework="net6.0">
+      </group>
+      <group targetFramework="net472">
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <!--
+      > These assemblies will only be available at runtime, so if you want to provide
+      > the corresponding compile time assembly as well then have AnyCPU assembly in /ref/{tfm} folder.
+
+      Wait, how do we create the ref assembly of a C++/CLI assembly...?
+
+      CefSharp seems to accomplish this.
+        https://www.nuget.org/packages/CefSharp.Common
+        https://github.com/cefsharp/CefSharp/blob/master/CefSharp.Core.Runtime/CefSharp.Core.Runtime.netcore.vcxproj
+
+      Through Microsoft.DotNet.GenAPI.
+        https://github.com/cefsharp/CefSharp/blob/master/CefSharp.Core.Runtime.RefAssembly/CefSharp.Core.Runtime.RefAssembly.netcore.csproj
+        https://github.com/dotnet/sdk/tree/main/src/GenAPI
+    -->
+    <!-- TODO: Generate proper ref assemblies. -->
+    <file src="CxxCliClassLibrary\Win32\Release\CxxCliClassLibrary.dll" target="ref/net6.0" />
+    <file src="CxxCliClassLibraryNetFx\Win32\Release\CxxCliClassLibrary.dll" target="ref/net472" />
+
+    <!--
+      How to notify consumers that "only win-x64 and win-86 are supported" without resorting to a .target?
+      A .target is okay, though.
+      (Well, I guess this issue exists in the AnyCPU + runtimes/<RID>/native scenario.
+       Missing `runtimes/<RID>` will not result in an error.)
+    -->
+    <file src="CxxCliClassLibrary\x64\Release\CxxCliClassLibrary.dll" target="runtimes/win-x64/lib/net6.0" />
+    <file src="CxxCliClassLibrary\Win32\Release\CxxCliClassLibrary.dll" target="runtimes/win-x86/lib/net6.0" />
+    <file src="CxxCliClassLibraryNetFx\x64\Release\CxxCliClassLibrary.dll" target="runtimes/win-x64/lib/net472" />
+    <file src="CxxCliClassLibraryNetFx\Win32\Release\CxxCliClassLibrary.dll" target="runtimes/win-x86/lib/net472" />
+  </files>
+</package>

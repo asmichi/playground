@@ -1,0 +1,14 @@
+﻿<Project>
+
+  <!-- Directories -->
+  <PropertyGroup>
+    <!-- One central intermediate directory. MSBuildProjectName to keep intermediate directories from being shared across multiple projects. -->
+    <ObjDir>$(WorkTreeRoot)obj\</ObjDir>
+    <BaseIntermediateOutputPath>$(ObjDir)$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <IntDir>$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\</IntDir>
+    <!-- One central bin directory. -->
+    <BinDir>$(WorkTreeRoot)bin\</BinDir>
+    <OutDir>$(BinDir)\$(MSBuildProjectName)\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+
+</Project>

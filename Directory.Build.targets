@@ -1,3 +1,4 @@
 ﻿<Project>
   <Import Project="build/msbuild/CommonTargets.csproj.targets" Condition="'$(MSBuildProjectExtension)'=='.csproj'"/>
+  <Import Project="build/msbuild/CommonTargets.vcxproj.targets" Condition="'$(MSBuildProjectExtension)'=='.vcxproj'"/>
 </Project>
